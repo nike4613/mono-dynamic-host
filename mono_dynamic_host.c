@@ -155,49 +155,66 @@ typedef enum {
   MONO_DEBUG_FORMAT_DEBUGGER, // <-- Deprecated
 } MonoDebugFormat;
 
+typedef int (*mono_main_t)(int argc, char* argv[]);
+
 typedef MonoDomain* (*mono_jit_init_t)(char const* file);
 typedef MonoAssembly* (*mono_domain_assembly_open_t)(MonoDomain* domain, char const* name);
 typedef void (*mono_assembly_setrootdir_t)(char const* root_dir);
 typedef void (*mono_debug_init_t)(MonoDebugFormat format);
 typedef void (*mono_debug_domain_create_t)(MonoDomain* domain);
 typedef int (*mono_jit_exec_t)(MonoDomain* domain, MonoAssembly* assembly, int argc, char* argv[]);
+typedef int (*mono_environment_exitcode_get_t)(void);
+typedef void (*mono_jit_cleanup_t)(MonoDomain* domain);
 
 // ---- MAIN ENTRY POINT ----
 
+void print_usage(char const* name, int includeHelp)
+{
+  printf("usage: %s <mono dynamic library> <.NET executable> [<arg> ...]\n", name);
+
+  if (includeHelp)
+  {
+    printf(
+      "\n"
+      "                                  Mono Dynamic Host\n"
+      "\n"
+      "  The Mono Dynamic Host enables the use of any Mono shared library to run applications.\n"
+      "It's primary use is to be able to run standalone applications using the Mono runtime\n"
+      "used by Unity.\n"
+      "\n"
+      "<mono dynamic library>      The (full or relative) path to the Mono shared library to\n"
+      "                            use. For instance, it might be \"mono-2.0-bdwgc.dll\" to use\n"
+      "                            a Unity Mono build on Windows.\n"
+      "\n"
+      "     <.NET Executable>      The .NET executable to invoke as an entrypoint. This doesn't\n"
+      "                            actually need to be an EXE, it just needs to have an entrypoint\n"
+      "                            defined in .NET metadata.\n"
+      "\n"
+      "  Depending on the layout of the application and the corelib, it may be necessary to specify\n"
+      "the MONO_PATH and MONO_CFG_DIR environment variables. MONO_PATH should be the path to the\n"
+      "directory containing the corelibs, and MONO_CFG_DIR should be the \"/etc\" in the normal\n"
+      "Mono installation.\n"
+      "\n"
+      "  Note also that, if mono_main is available, that will be used instead of any other hosting\n"
+      "APIs.\n"
+    );
+  }
+}
+
 int main(int argc, char **argv)
 {
-  // We always require at least 2 arguments
-  if(argc < 3)
+  if (argc < 2)
   {
-    printf("usage: %s <mono dynamic library> <.NET executable> [<arg> ...]\n", argv[0]);
-
-    if (argc >= 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")))
-    {
-      printf(
-        "\n"
-        "                                  Mono Dynamic Host\n"
-        "\n"
-        "  The Mono Dynamic Host enables the use of any Mono shared library to run applications.\n"
-        "It's primary use is to be able to run standalone applications using the Mono runtime\n"
-        "used by Unity.\n"
-        "\n"
-        "<mono dynamic library>      The (full or relative) path to the Mono shared library to\n"
-        "                            use. For instance, it might be \"mono-2.0-bdwgc.dll\" to use\n"
-        "                            a Unity Mono build on Windows.\n"
-        "\n"
-        "     <.NET Executable>      The .NET executable to invoke as an entrypoint. This doesn't\n"
-        "                            actually need to be an EXE, it just needs to have an entrypoint\n"
-        "                            defined in .NET metadata.\n"
-        "\n"
-        "  Depending on the layout of the application and the corelib, it may be necessary to specify\n"
-        "the MONO_PATH and MONO_CFG_DIR environment variables. MONO_PATH should be the path to the\n"
-        "directory containing the corelibs, and MONO_CFG_DIR should be the \"/etc\" in the normal\n"
-        "Mono installation."
-      );
-    }
+    print_usage(argv[0], 0);
     return 1;
   }
   
+  if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
+  {
+    print_usage(argv[0], 1);
+    return 1;
+  }
+
   PAL_Init();
 
   void* monoHnd = PAL_LoadLibrary(argv[1]);
@@ -217,11 +234,29 @@ int main(int argc, char **argv)
     return 1; \
   }
 
+  LOAD_SYM_OPT(mono_main);
+
+  if (mono_main)
+  {
+    // we have mono_main, pass off to that
+    return mono_main(argc - 1, argv + 1);
+  }
+  
+  // we don't have mono main, check for help message as necessary first
+
+  if (argc < 3)
+  {
+    print_usage(argv[0], 0);
+    return 1;
+  }
+
   LOAD_SYM(mono_jit_init);
   LOAD_SYM(mono_domain_assembly_open);
   LOAD_SYM_OPT(mono_debug_init);
   LOAD_SYM_OPT(mono_debug_domain_create);
   LOAD_SYM(mono_jit_exec);
+  LOAD_SYM_OPT(mono_environment_exitcode_get);
+  LOAD_SYM(mono_jit_cleanup);
   
   // Now that we've loaded Mono, lets execute
   
@@ -252,5 +287,14 @@ int main(int argc, char **argv)
   }
 
   MonoAssembly *assembly = mono_domain_assembly_open(domain, argv[2]);
-  return mono_jit_exec(domain, assembly, argc - 2, argv + 2);
+  int result = mono_jit_exec(domain, assembly, argc - 2, argv + 2);
+
+  if (mono_environment_exitcode_get)
+  {
+    result = mono_environment_exitcode_get();
+  }
+
+  mono_jit_cleanup(domain);
+
+  return result;
 }
