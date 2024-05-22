@@ -27,11 +27,20 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         pattern: release-*
+    - name: Compute files list
+      id: flist
+      run: |
+        echo "files<<;;;
+        `ls`
+        ;;;"
     - name: Create release
-      uses: ncipollo/release-action@v1
+      uses: iamkubi/github-release@2.0
       with:
-        artifacts: "release-*"
-        body: false
-        generateReleaseNotes: true
+        token: ${{ github.token }}
+        body: ${{ inputs.description }}
+        generate_release_notes: true
         tag: v${{ inputs.version }}
+        gzip: folders
+        allow_override: true
+        files: ${{ steps.flist.outputs.files }}
         
