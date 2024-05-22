@@ -32,7 +32,7 @@ jobs:
       run: |
         echo "files<<;;;
         `ls`
-        ;;;"
+        ;;;" >> $GITHUB_OUTPUT
     - name: Create release
       uses: iamkubi/github-release@2.0
       with:
