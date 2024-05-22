@@ -3,6 +3,7 @@ name: Build
 on:
   push:
   pull_request:
+  workflow_call:
 
 jobs:
   build:
@@ -29,6 +30,6 @@ jobs:
       - name: Upload release
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.os }}
+          name: release-${{ runner.os }}-${{ runner.arch }}
           path: |
             build/install/**/*
