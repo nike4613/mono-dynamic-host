@@ -14,4 +14,4 @@ endif
 
 exe = executable('mdh', 'mono_dynamic_host.c',
   dependencies : [dl_dep],
-  install : true)
+  install : true, install_dir : '/bin')
