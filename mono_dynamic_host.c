@@ -13,6 +13,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
 
 #ifdef MDH_WINDOWS
 # define WIN32_LEAN_AND_MEAN
@@ -25,6 +27,18 @@
 #endif
 
 // ---- PAL ----
+
+char* PAL_StrDup(char const* str)
+{
+#if __STDC_VERSION__ >= 202300L
+  // C23
+  return strdup(str);
+#else
+  char* result = malloc(strlen(str) + 1);
+  strcpy(result, str);
+  return result;
+#endif
+}
 
 #if defined(MDH_LIBDL)
 
@@ -42,6 +56,13 @@ void* PAL_LoadLibrary(char const* name)
 void* PAL_GetSymbol(void* handle, char const* name)
 {
   return dlsym(handle, name);
+}
+
+char* PAL_DupEnv(char const* name)
+{
+  char* env = getenv(name);
+  if (!env) return NULL;
+  return PAL_StrDup(env);
 }
 
 void PAL_ReportError(char const* message, ...)
@@ -73,6 +94,15 @@ void* PAL_LoadLibrary(char const* name)
 void* PAL_GetSymbol(void* handle, char const* name)
 {
   return (void*)GetProcAddress((HMODULE)handle, name);
+}
+
+char* PAL_DupEnv(char const* name)
+{
+  DWORD size = GetEnvironmentVariableA(name, NULL, 0);
+  if (size == 0) return NULL; // env var was not found
+  char* buffer = malloc(size + 1);
+  GetEnvironmentVariableA(name, buffer, size + 1);
+  return buffer;
 }
 
 void PAL_ReportError(char const* message, ...)
@@ -127,6 +157,7 @@ typedef enum {
 
 typedef MonoDomain* (*mono_jit_init_t)(char const* file);
 typedef MonoAssembly* (*mono_domain_assembly_open_t)(MonoDomain* domain, char const* name);
+typedef void (*mono_assembly_setrootdir_t)(char const* root_dir);
 typedef void (*mono_debug_init_t)(MonoDebugFormat format);
 typedef void (*mono_debug_domain_create_t)(MonoDomain* domain);
 typedef int (*mono_jit_exec_t)(MonoDomain* domain, MonoAssembly* assembly, int argc, char* argv[]);
@@ -139,6 +170,31 @@ int main(int argc, char **argv)
   if(argc < 3)
   {
     printf("usage: %s <mono dynamic library> <.NET executable> [<arg> ...]\n", argv[0]);
+
+    if (argc >= 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")))
+    {
+      printf(
+        "\n"
+        "                                  Mono Dynamic Host\n"
+        "\n"
+        "  The Mono Dynamic Host enables the use of any Mono shared library to run applications.\n"
+        "It's primary use is to be able to run standalone applications using the Mono runtime\n"
+        "used by Unity.\n"
+        "\n"
+        "<mono dynamic library>      The (full or relative) path to the Mono shared library to\n"
+        "                            use. For instance, it might be \"mono-2.0-bdwgc.dll\" to use\n"
+        "                            a Unity Mono build on Windows.\n"
+        "\n"
+        "     <.NET Executable>      The .NET executable to invoke as an entrypoint. This doesn't\n"
+        "                            actually need to be an EXE, it just needs to have an entrypoint\n"
+        "                            defined in .NET metadata.\n"
+        "\n"
+        "  Depending on the layout of the application and the corelib, it may be necessary to specify\n"
+        "the MONO_PATH and MONO_CFG_DIR environment variables. MONO_PATH should be the path to the\n"
+        "directory containing the corelibs, and MONO_CFG_DIR should be the \"/etc\" in the normal\n"
+        "Mono installation."
+      );
+    }
     return 1;
   }
   
@@ -169,6 +225,24 @@ int main(int argc, char **argv)
   
   // Now that we've loaded Mono, lets execute
   
+  // lets try to set the Mono root dir if MONO_PATH is set
+  char* monoPathEnv = PAL_DupEnv("MONO_PATH");
+  if (monoPathEnv)
+  {
+    LOAD_SYM_OPT(mono_assembly_setrootdir);
+
+    if (mono_assembly_setrootdir)
+    {
+      mono_assembly_setrootdir(monoPathEnv);
+    }
+    else
+    {
+      PAL_ReportError("MONO_PATH was set, but %s did not have symbol %s to configure it", argv[1], "mono_assembly_setrootdir");
+    }
+
+    free(monoPathEnv);
+  }
+
   MonoDomain *domain = mono_jit_init(argv[2]);
 
   if (mono_debug_init && mono_debug_domain_create)
