@@ -5,7 +5,7 @@
 #	endif	
 #elif __APPLE__
 # define MDH_OSX
-#elif defined(_POSIX_VERSION)
+#elif defined(__linux__) || defined(__unix__) || defined(_POSIX_VERSION)
 #	define MDH_POSIX
 #else
 #	error "Unknown platform"
@@ -39,64 +39,66 @@ int main(int argc, char **argv)
     return 1;
   }
   
-  #if defined(MDH_LIBDL)
+#if defined(MDH_LIBDL)
 
-    // always clear dlerror() just to be sure
-    dlerror();
+  // always clear dlerror() just to be sure
+  dlerror();
   
-    void *monoHnd = dlopen(argv[1], RTLD_LAZY | RTLD_GLOBAL);
-    if (!monoHnd)
-    {
-      fprintf(stderr, "mdh: could not load mono from %s: %s\n", argv[1], dlerror());
-      return 1;
+  void *monoHnd = dlopen(argv[1], RTLD_LAZY | RTLD_GLOBAL);
+  if (!monoHnd)
+  {
+    fprintf(stderr, "mdh: could not load mono from %s: %s\n", argv[1], dlerror());
+    return 1;
+  }
+  
+  #define LOAD_SYM(name) \
+    name##_t name = (name##_t)dlsym(monoHnd, #name); \
+    if (!name) \
+    { \
+      fprintf(stderr, "mdh: could not load symbol '%s': %s\n", #name, dlerror()); \
+      return 1; \
     }
   
-    #define LOAD_SYM(name) \
-      name##_t name = (name##_t)dlsym(monoHnd, #name); \
-      if (!name) \
-      { \
-        fprintf(stderr, "mdh: could not load symbol '%s': %s\n", #name, dlerror()); \
-        return 1; \
-      }
-  
-  #elif defined(MDH_WINDOWS)
+#elif defined(MDH_WINDOWS)
 
-    HMODULE monoHnd = LoadLibraryA(argv[1]);
-    if (!monoHnd)
+  HMODULE monoHnd = LoadLibraryA(argv[1]);
+  if (!monoHnd)
+  {
+    DWORD error = GetLastError();
+    LPSTR message;
+    if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                        NULL, error, 0, (LPSTR)&message, 0, NULL))
     {
-      DWORD error = GetLastError();
-      LPSTR message;
-      if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-                          NULL, error, 0, (LPSTR)&message, 0, NULL))
-      {
-        fprintf(stderr, "mdh: could not format error code %#lx: %#lx\r\n", error, GetLastError());
-        return 1;
-      }
+      fprintf(stderr, "mdh: could not format error code %#lx: %#lx\r\n", error, GetLastError());
+      return 1;
+    }
     
-      fprintf(stderr, "mdh: could not load mono from %s: %s\r\n", argv[1], message);
-      return 1;
-    }
+    fprintf(stderr, "mdh: could not load mono from %s: %s\r\n", argv[1], message);
+    return 1;
+  }
   
-    #define LOAD_SYM(name) \
-      name##_t name = (name##_t)GetProcAddress(monoHnd, #name); \
-      if (!name) \
+  #define LOAD_SYM(name) \
+    name##_t name = (name##_t)GetProcAddress(monoHnd, #name); \
+    if (!name) \
+    { \
+      DWORD error = GetLastError(); \
+      LPSTR message; \
+      if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, \
+                          NULL, error, 0, (LPSTR)&message, 0, NULL)) \
       { \
-        DWORD error = GetLastError(); \
-        LPSTR message; \
-        if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, \
-                            NULL, error, 0, (LPSTR)&message, 0, NULL)) \
-        { \
-          fprintf(stderr, "mdh: could not format error code %#lx: %#lx\r\n", error, GetLastError()); \
-          return 1; \
-        } \
-        \
-        fprintf(stderr, "mdh: could not load symbol '%s': %s\r\n", #name, message); \
+        fprintf(stderr, "mdh: could not format error code %#lx: %#lx\r\n", error, GetLastError()); \
         return 1; \
-      }
+      } \
+      \
+      fprintf(stderr, "mdh: could not load symbol '%s': %s\r\n", #name, message); \
+      return 1; \
+    }
 
-  #else
-    #error "Unknown dynamic loader"
-  #endif
+#else
+  #error "Unknown dynamic loader"
+  
+  #define LOAD_SYM(name) name##_t name = NULL; // <-- This just silences noisy compiler errors in this case.
+#endif
   
   LOAD_SYM(mono_jit_init);
   LOAD_SYM(mono_domain_assembly_open);
