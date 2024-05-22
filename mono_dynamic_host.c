@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 # define MDH_WINDOWS
 # ifdef _WIN64
@@ -12,6 +10,8 @@
 #else
 #	error "Unknown platform"
 #endif
+
+#include <stdio.h>
 
 #ifdef MDH_WINDOWS
 #	include <windows.h>
@@ -69,7 +69,7 @@ int main(int argc, char **argv)
       if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
                           NULL, error, 0, (LPSTR)&message, 0, NULL))
       {
-        fprintf(stderr, "mdh: could not format error code %#x: %#x\r\n", error, GetLastError());
+        fprintf(stderr, "mdh: could not format error code %#lx: %#lx\r\n", error, GetLastError());
         return 1;
       }
     
@@ -86,7 +86,7 @@ int main(int argc, char **argv)
         if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, \
                             NULL, error, 0, (LPSTR)&message, 0, NULL)) \
         { \
-          fprintf(stderr, "mdh: could not format error code %#x: %#x\r\n", error, GetLastError()); \
+          fprintf(stderr, "mdh: could not format error code %#lx: %#lx\r\n", error, GetLastError()); \
           return 1; \
         } \
         \

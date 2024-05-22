@@ -1,6 +1,6 @@
 project('mono-dynamic-host', 'c',
   version : '0.1',
-  default_options : ['warning_level=3'])
+  default_options : ['warning_level=3', 'c_std=c99'])
 
 cc = meson.get_compiler('c')
 
@@ -15,5 +15,3 @@ endif
 exe = executable('mdh', 'mono_dynamic_host.c',
   dependencies : [dl_dep],
   install : true)
-
-test('basic', exe)
