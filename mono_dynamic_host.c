@@ -67,6 +67,8 @@ char* PAL_DupEnv(char const* name)
 
 void PAL_ReportError(char const* message, ...)
 {
+  char const* error = PAL_StrDup(dlerror());
+
   va_list args;
   va_start(args, message);
 
@@ -76,7 +78,9 @@ void PAL_ReportError(char const* message, ...)
 
   va_end(args);
 
-  fprintf(stderr, "mdh: %s: %s\n", buffer, dlerror());
+  fprintf(stderr, "mdh: %s: %s\n", buffer, error);
+
+  free(error);
 }
 
 #elif defined(MDH_WINDOWS)
@@ -107,6 +111,8 @@ char* PAL_DupEnv(char const* name)
 
 void PAL_ReportError(char const* message, ...)
 {
+  DWORD error = GetLastError();
+
   va_list args;
   va_start(args, message);
 
@@ -116,17 +122,16 @@ void PAL_ReportError(char const* message, ...)
 
   va_end(args);
 
-  DWORD error = GetLastError();
   BOOL localFree = TRUE;
   LPSTR fmessage;
-  if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+  if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                       NULL, error, 0, (LPSTR)&fmessage, 0, NULL))
   {
     DWORD error2 = GetLastError();
     strSize = snprintf(NULL, 0, "could not format error core %#lx (%#lx)", error, error2);
     fmessage = malloc(strSize + 1);
     localFree = FALSE;
-    snprintf(fmessage, strSize, "could not format error core %#lx (%#lx)", error, error2);
+    snprintf(fmessage, strSize + 1, "could not format error core %#lx (%#lx)", error, error2);
   }
 
   fprintf(stderr, "mdh: %s: %s", buffer, fmessage);
