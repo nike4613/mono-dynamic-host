@@ -11,11 +11,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-13, macos-14] # TODO: how can we reasonably select arch, when that's meaningful?
+        a: [1]
         include:
         - os: windows-latest
           arch: x86
+          a: 1
         - os: windows-latest
           arch: x64
+          a: 2
 
     runs-on: ${{ matrix.os }}
     steps:
