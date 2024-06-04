@@ -11,25 +11,42 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-13, macos-14] # TODO: how can we reasonably select arch, when that's meaningful?
+        include:
+        - os: windows-latest
+          arch: x86
+        - os: windows-latest
+          arch: x64
+
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
       - name: Install dependencies
         run: python -m pip install meson==1.4.0 ninja
+
+      - name: Configure MSVC Environment
+        if: runner.os == "Windows"
+        uses: bus1/cabuild/action/msdevshell@v1
+        with:
+          architecture: ${{ matrix.arch }}
+
       - name: Configure Project
         run: meson setup build/ -Dbuildtype=release
         env:
           CC: clang
+
       - name: Build and create dist
-        run: meson install -C build --destdir install
+        run: meson install -v -C build --destdir install
+
       - name: Upload release
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ runner.os }}-${{ runner.arch }}
+          name: release-${{ runner.os }}-${{ matrix.arch && matrix.arch || runner.arch }}
           path: |
             build/install/**/*
