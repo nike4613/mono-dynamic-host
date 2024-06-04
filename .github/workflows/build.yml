@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}${{ matrix.arch && ' ('+matrix.arch+')' || runner.arch }}
+    name: Build on ${{ matrix.os }}${{ matrix.arch && (' (' + matrix.arch + ')') || runner.arch }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-13, macos-14] # TODO: how can we reasonably select arch, when that's meaningful?
