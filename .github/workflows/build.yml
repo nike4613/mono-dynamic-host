@@ -42,7 +42,7 @@ jobs:
           CC: clang
 
       - name: Build and create dist
-        run: meson install -v -C build --destdir install
+        run: meson install -C build --destdir install
 
       - name: Upload release
         uses: actions/upload-artifact@v4
