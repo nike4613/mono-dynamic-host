@@ -14,10 +14,10 @@ jobs:
         a: [1]
         include:
         - os: windows-latest
-          arch: x86
+          arch: X86
           a: 1
         - os: windows-latest
-          arch: x64
+          arch: X64
           a: 2
 
     runs-on: ${{ matrix.os }}
