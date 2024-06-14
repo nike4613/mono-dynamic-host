@@ -102,6 +102,7 @@ else
     $cflags += @("-O0");
 }
 
+$built = @();
 $failed = @();
 foreach ($target in $allTargets)
 {
@@ -137,38 +138,40 @@ foreach ($target in $allTargets)
 
         Remove-Item "$outexe.tmp";
     }
+
+    $built += @($target);
 }
 
 
 if ($failed.Length -eq 0)
 {
-    # no failures above
-    if ($Targets -eq $null -or $Target -contains "any-macos")
+    $target = "any-macos";
+    if ($Targets -eq $null -or $Target -contains $target)
     {
         # we want to build a MacOS universal binary
-        
         if ($lipo -ne $null)
         {
-            echo "--------- Packing for any-macos ---------";
+            echo "--------- Packing for $target ---------";
             # lipo together all the macos targets
-            $outdir = Join-Path $builddir "any-macos";
+            $outdir = Join-Path $builddir $target;
             Ensure-DirExists $outdir;
             $outexe = Join-Path $outdir "mdh";
 
             $infiles = $macTargets | % { Join-Path $builddir $_ "mdh" | Resolve-Path };
             Exec -EA Ignore $lipo "-output" $outexe "-create" @infiles;
-            if (-not $?) { $failed += @("any-macos"); }
+            if (-not $?) { $failed += @($target); }
+            $built += @($target);
         }
-        elseif ($Targets -ne $null -and $Targets -contains "any-macos")
+        elseif ($Targets -ne $null -and $Targets -contains $target)
         {
             Write-Host "------------------------------------------------";
             Write-Host "any-macos was requested, but no lipo command was found";
-            $failed += @("any-macos");
+            $failed += @($target);
         }
         else
         {
             Write-Host "------------------------------------------------";
-            Write-Host "No lipo command was found, not building any-macos";
+            Write-Host "No lipo command was found, not building $target";
         }
 
         Write-Host "------------------------------------------------";
@@ -182,3 +185,15 @@ if ($failed.Length -gt 0)
 
     exit 1;
 }
+
+Write-Host "Creating archives...";
+
+# create archives of all created binaries
+foreach ($target in $built)
+{
+    $outdir = Join-Path $builddir $target | Resolve-Path;
+    $zip = Join-Path $builddir "$target.zip";
+    Compress-Archive -LiteralPath (Get-ChildItem $outdir) -DestinationPath $zip -CompressionLevel Optimal -Force;
+}
+
+Write-Host "Done!";
