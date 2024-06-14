@@ -22,7 +22,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop";
-          Invoke-WebRequest https://github.com/konoui/lipo/releases/latest/download/lipo_Linux_amd64 -OutPath /tmp/lipo
+          Invoke-WebRequest https://github.com/konoui/lipo/releases/latest/download/lipo_Linux_amd64 -OutFile /tmp/lipo
           chmod +x /tmp/lipo
 
       - name: Build

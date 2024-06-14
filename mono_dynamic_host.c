@@ -28,7 +28,7 @@
 
 // ---- PAL ----
 
-char* PAL_StrDup(char const* str)
+static char* PAL_StrDup(char const* str)
 {
 #if __STDC_VERSION__ >= 202300L
   // C23
@@ -42,30 +42,30 @@ char* PAL_StrDup(char const* str)
 
 #if defined(MDH_LIBDL)
 
-void PAL_Init(void)
+static void PAL_Init(void)
 {
   // always clear dlerror() just to be sure
   dlerror();
 }
 
-void* PAL_LoadLibrary(char const* name)
+static void* PAL_LoadLibrary(char const* name)
 {
   return dlopen(name, RTLD_LAZY | RTLD_GLOBAL);
 }
 
-void* PAL_GetSymbol(void* handle, char const* name)
+static void* PAL_GetSymbol(void* handle, char const* name)
 {
   return dlsym(handle, name);
 }
 
-char* PAL_DupEnv(char const* name)
+static char* PAL_DupEnv(char const* name)
 {
   char* env = getenv(name);
   if (!env) return NULL;
   return PAL_StrDup(env);
 }
 
-void PAL_ReportError(char const* message, ...)
+static void PAL_ReportError(char const* message, ...)
 {
   char* error = PAL_StrDup(dlerror());
 
@@ -85,22 +85,22 @@ void PAL_ReportError(char const* message, ...)
 
 #elif defined(MDH_WINDOWS)
 
-void PAL_Init(void)
+static void PAL_Init(void)
 {
   // Windows needs no initialization.
 }
 
-void* PAL_LoadLibrary(char const* name)
+static void* PAL_LoadLibrary(char const* name)
 {
   return (void*)LoadLibraryA(name);
 }
 
-void* PAL_GetSymbol(void* handle, char const* name)
+static void* PAL_GetSymbol(void* handle, char const* name)
 {
   return (void*)GetProcAddress((HMODULE)handle, name);
 }
 
-char* PAL_DupEnv(char const* name)
+static char* PAL_DupEnv(char const* name)
 {
   DWORD size = GetEnvironmentVariableA(name, NULL, 0);
   if (size == 0) return NULL; // env var was not found
@@ -109,7 +109,7 @@ char* PAL_DupEnv(char const* name)
   return buffer;
 }
 
-void PAL_ReportError(char const* message, ...)
+static void PAL_ReportError(char const* message, ...)
 {
   DWORD error = GetLastError();
 
@@ -123,7 +123,7 @@ void PAL_ReportError(char const* message, ...)
   va_end(args);
 
   BOOL localFree = TRUE;
-  LPSTR fmessage;
+  LPSTR fmessage = NULL;
   if (!FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                       NULL, error, 0, (LPSTR)&fmessage, 0, NULL))
   {
@@ -173,7 +173,7 @@ typedef void (*mono_jit_cleanup_t)(MonoDomain* domain);
 
 // ---- MAIN ENTRY POINT ----
 
-void print_usage(char const* name, int includeHelp)
+static void print_usage(char const* name, int includeHelp)
 {
   printf("usage: %s <mono dynamic library> <.NET executable> [<arg> ...]\n", name);
 
