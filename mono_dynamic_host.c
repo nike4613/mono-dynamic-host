@@ -67,7 +67,7 @@ char* PAL_DupEnv(char const* name)
 
 void PAL_ReportError(char const* message, ...)
 {
-  char const* error = PAL_StrDup(dlerror());
+  char* error = PAL_StrDup(dlerror());
 
   va_list args;
   va_start(args, message);
