@@ -26,7 +26,8 @@ jobs:
     - name: Download release artifacts
       uses: actions/download-artifact@v4
       with:
-        pattern: release-*
+        pattern: release
+        merge-multiple: true
     - name: Compute files list
       id: flist
       run: |

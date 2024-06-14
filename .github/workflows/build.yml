@@ -7,47 +7,32 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}${{ matrix.arch && format(' ({0})', matrix.arch) || '' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-13, macos-14] # TODO: how can we reasonably select arch, when that's meaningful?
-        a: [1]
-        include:
-        - os: windows-latest
-          arch: x86
-          a: 1
-        - os: windows-latest
-          arch: x64
-          a: 2
-
-    runs-on: ${{ matrix.os }}
+    name: Build
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
         with:
-          python-version: '3.x'
+          version: 0.13.0
+      
+      - name: Download LIPO
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop";
+          Invoke-WebRequest https://github.com/konoui/lipo/releases/latest/download/lipo_Linux_amd64 -OutPath /tmp/lipo
+          chmod +x /tmp/lipo
 
-      - name: Install dependencies
-        run: python -m pip install meson==1.4.0 ninja
+      - name: Build
+        shell: pwsh
+        run: |
+          ./build.ps1 -LipoCommand /tmp/lipo
 
-      - name: Configure MSVC Environment
-        if: ${{ runner.os == 'Windows' }}
-        uses: bus1/cabuild/action/msdevshell@v1
-        with:
-          architecture: ${{ matrix.arch }}
-
-      - name: Configure Project
-        run: meson setup build/ -Dbuildtype=release
-
-      - name: Build and create dist
-        run: meson install -C build --destdir install
-
-      - name: Upload release
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ runner.os }}-${{ matrix.arch && matrix.arch || runner.arch }}
+          name: release
           path: |
-            build/install/**/*
+            build/*.zip
