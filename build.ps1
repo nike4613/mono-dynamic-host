@@ -17,6 +17,11 @@ function Ensure-DirExists([string]$dir)
 
 $zig = Get-Command zig;
 $lipo = Get-Command -EA Ignore $LipoCommand;
+if ($lipo -eq $null)
+{
+    # try to probe for llvm-lipo
+    $lipo = Get-Command -EA Ignore "llvm-lipo*" | Select -First 1;
+}
 
 function Exec
 {
@@ -54,7 +59,7 @@ Ensure-DirExists $builddir;
 
 $source = Join-Path $PSScriptRoot "mono_dynamic_host.c" | Resolve-Path;
 
-$targets = @(
+$allTargets = @(
     # Windows
     "x86_64-windows",
     "x86-windows",
@@ -74,15 +79,31 @@ $targets = @(
     "aarch64-macos"
 );
 
-$macTargets = $targets | Where { $_.EndsWith("-macos") };
+$macTargets = $allTargets | Where { $_.EndsWith("-macos") };
 
 if ($Targets -contains "any-macos") { $Targets += $macTargets; }
 
 $cflags = @("-g","-Wall","-Wpedantic");
 $cflagsNonWin = @("-lc","-ldl","-Wl,--build-id");
 
+if (-not $Debug -and -not $NoOpt)
+{
+    # always optimize for size
+    $cflags += @("-Oz");
+}
+elseif (-not $NoOpt)
+{
+    # if -debug is specified, use optimization targeted at debugability
+    $cflags += @("-Og");
+}
+else
+{
+    # if -NoOpt is specified, disable all optimization
+    $cflags += @("-O0");
+}
+
 $failed = @();
-foreach ($target in $targets)
+foreach ($target in $allTargets)
 {
     if ($Targets -ne $null -and -not $Targets -contains $target) { continue; }
 
@@ -118,19 +139,39 @@ foreach ($target in $targets)
     }
 }
 
-if ($lipo -ne $null -and ($Target -eq $null -or $Target -contains "any-macos") -and $failed.Length -eq 0)
-{
-    # lipo together all the macos targets
-    $outdir = Join-Path $builddir "any-macos";
-    Ensure-DirExists $outdir;
-    $outexe = Join-Path $outdir "mdh";
-
-    $infiles = $macTargets | % { Join-Path $builddir $_ "mdh" | Resolve-Path };
-    Exec -EA Ignore $lipo "-output" $outexe "-create" @infiles;
-    if (-not $?) { $failed += @("any-macos"); }
-}
-
 Write-Host "------------------------------------------------";
+
+if ($failed.Length -eq 0)
+{
+    # no failures above
+    if ($Targets -eq $null -or $Target -contains "any-macos")
+    {
+        # we want to build a MacOS universal binary
+        
+        if ($lipo -ne $null)
+        {
+            # lipo together all the macos targets
+            $outdir = Join-Path $builddir "any-macos";
+            Ensure-DirExists $outdir;
+            $outexe = Join-Path $outdir "mdh";
+
+            $infiles = $macTargets | % { Join-Path $builddir $_ "mdh" | Resolve-Path };
+            Exec -EA Ignore $lipo "-output" $outexe "-create" @infiles;
+            if (-not $?) { $failed += @("any-macos"); }
+        }
+        elseif ($Targets -ne $null -and $Targets -contains "any-macos")
+        {
+            Write-Host "any-macos was requested, but no lipo command was found";
+            $failed += @("any-macos");
+        }
+        else
+        {
+            Write-Host "No lipo command was found, not building any-macos";
+        }
+
+        Write-Host "------------------------------------------------";
+    }
+}
 
 if ($failed.Length -gt 0)
 {
