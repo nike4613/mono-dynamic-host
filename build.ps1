@@ -139,7 +139,6 @@ foreach ($target in $allTargets)
     }
 }
 
-Write-Host "------------------------------------------------";
 
 if ($failed.Length -eq 0)
 {
@@ -150,6 +149,7 @@ if ($failed.Length -eq 0)
         
         if ($lipo -ne $null)
         {
+            echo "--------- Packing for any-macos ---------";
             # lipo together all the macos targets
             $outdir = Join-Path $builddir "any-macos";
             Ensure-DirExists $outdir;
@@ -161,11 +161,13 @@ if ($failed.Length -eq 0)
         }
         elseif ($Targets -ne $null -and $Targets -contains "any-macos")
         {
+            Write-Host "------------------------------------------------";
             Write-Host "any-macos was requested, but no lipo command was found";
             $failed += @("any-macos");
         }
         else
         {
+            Write-Host "------------------------------------------------";
             Write-Host "No lipo command was found, not building any-macos";
         }
 
