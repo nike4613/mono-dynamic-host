@@ -11,11 +11,24 @@
       ],
       "defines": [
         "WIN32",
-        "_DEBUG",
-        "UNICODE",
-        "_UNICODE"
+        "_DEBUG"
       ],
       "intelliSenseMode": "windows-msvc-x64"
+    },
+    {
+      "inheritEnvironments": [
+        "linux_x64"
+      ],
+      "name": "x64-Debug-linux",
+      "includePath": [
+        "${env.INCLUDE}",
+        "${workspaceRoot}\\**"
+      ],
+      "defines": [
+        //"WIN32",
+        "_DEBUG"
+      ],
+      "intelliSenseMode": "linux-gcc-x64"
     }
   ]
 }
