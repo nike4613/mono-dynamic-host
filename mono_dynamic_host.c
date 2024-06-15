@@ -7,7 +7,7 @@ static int mdh_verbose;
 #define LVL_VERBOSE 2
 #define LVL_DEBUG 1
 
-static void load_global_vars()
+static void load_global_vars(void)
 {
   char* verbose = PAL_DupEnv("MDH_VERBOSE");
   if (verbose)
