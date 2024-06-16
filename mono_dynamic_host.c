@@ -4,8 +4,9 @@
 
 static int mdh_verbose;
 
-#define LVL_VERBOSE 2
 #define LVL_DEBUG 1
+#define LVL_VERBOSE 2
+#define LVL_NOISY 3
 
 static void load_global_vars(void)
 {
@@ -35,11 +36,13 @@ static void mdh_log(int level, char const* format, ...)
 }
 
 #define LOG(level, message) do { if (level <= mdh_verbose) { mdh_log(level, message); } } while (0)
-#define LOG_VRB(message) LOG(LVL_VERBOSE, message);
 #define LOG_DBG(message) LOG(LVL_DEBUG, message);
+#define LOG_VRB(message) LOG(LVL_VERBOSE, message);
+#define LOG_NSY(message) LOG(LVL_NOISY, message);
 #define LOGF(level, format, ...) do { if (level <= mdh_verbose) { mdh_log(level, format, __VA_ARGS__); } } while (0)
-#define LOGF_VRB(format, ...) LOGF(LVL_VERBOSE, format, __VA_ARGS__);
 #define LOGF_DBG(format, ...) LOGF(LVL_DEBUG, format, __VA_ARGS__);
+#define LOGF_VRB(format, ...) LOGF(LVL_VERBOSE, format, __VA_ARGS__);
+#define LOGF_NSY(format, ...) LOGF(LVL_NOISY, format, __VA_ARGS__);
 
 static void print_usage(char const* name, int includeHelp)
 {
@@ -185,6 +188,19 @@ static MonoVMInitResult try_init_monovm(char const* monoDll, void* monoHnd)
 int main(int argc, char **argv)
 {
   load_global_vars();
+
+  if (mdh_verbose >= LVL_NOISY)
+  {
+    // print out arguments
+    LOGF_NSY("argc = %d", argc);
+
+    for (int i = 0; i < argc; i++)
+    {
+      LOGF_NSY("argv[%d]=%s", i, argv[i]);
+    }
+
+    LOG_NSY("----------------");
+  }
 
   if (argc < 2)
   {
