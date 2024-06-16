@@ -106,7 +106,7 @@ $built = @();
 $failed = @();
 foreach ($target in $allTargets)
 {
-    if ($Targets -ne $null -and -not $Targets -contains $target) { continue; }
+    if ($Targets -ne $null -and -not ($Targets -contains $target)) { continue; }
 
     echo "--------- Compiling for $target ---------";
 
@@ -146,7 +146,7 @@ foreach ($target in $allTargets)
 if ($failed.Length -eq 0)
 {
     $target = "any-macos";
-    if ($Targets -eq $null -or $Target -contains $target)
+    if ($Targets -eq $null -or $Targets -contains $target)
     {
         # we want to build a MacOS universal binary
         if ($lipo -ne $null)
@@ -173,10 +173,10 @@ if ($failed.Length -eq 0)
             Write-Host "------------------------------------------------";
             Write-Host "No lipo command was found, not building $target";
         }
-
-        Write-Host "------------------------------------------------";
     }
 }
+
+Write-Host "------------------------------------------------";
 
 if ($failed.Length -gt 0)
 {
